@@ -21,6 +21,7 @@ export interface Product {
     color?: string[];
   };
   shopifyId?: string;
+  defaultVariantId?: string;
 }
 
 // Sample products - Replace with actual Shopify data
@@ -130,6 +131,7 @@ export default function MerchPage(): ReactNode {
                 image: imageUrl,
                 category: "accessories", // Default category, you can use Shopify tags
                 shopifyId: p.id,
+                defaultVariantId: p.variants.edges[0]?.node.id,
                 variants: {
                   size: p.variants.edges
                     .map((v) => v.node.title)

@@ -1,6 +1,7 @@
 import React from "react";
 import { X, Plus, Minus, ShoppingBag, ArrowRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { createCheckout, addToCheckout } from "../../lib/shopify";
 import type { Product } from "../../pages/merch";
 import "./ShoppingCart.css";
 
@@ -26,11 +27,50 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({
   const shipping = subtotal > 50 ? 0 : 5.99;
   const total = subtotal + shipping;
 
-  const handleCheckout = () => {
-    // TODO: Integrate with Shopify checkout
-    alert(
-      "Shopify checkout integration coming soon! This will redirect to Shopify's secure checkout.",
-    );
+  const [isCheckingOut, setIsCheckingOut] = React.useState(false);
+
+  const handleCheckout = async () => {
+    // Check if we have real Shopify items with variant IDs
+    const shopifyItems = items.filter((item) => item.defaultVariantId);
+
+    if (shopifyItems.length === 0) {
+      alert(
+        "Demo Mode: You currently have only sample items in your cart. In a production environment with Shopify configured, you would be redirected to a secure checkout.",
+      );
+      return;
+    }
+
+    try {
+      setIsCheckingOut(true);
+      
+      // 1. Create the checkout session
+      const checkout = await createCheckout();
+      
+      if (!checkout) {
+        throw new Error("Could not create Shopify checkout session.");
+      }
+
+      // 2. Map items to Shopify's expected format (VariantID + Quantity)
+      const lineItems = shopifyItems.map((item) => ({
+        variantId: item.defaultVariantId!,
+        quantity: item.quantity,
+      }));
+
+      // 3. Add items to the checkout session
+      const updatedCheckout = await addToCheckout(checkout.id, lineItems);
+      
+      if (updatedCheckout && updatedCheckout.webUrl) {
+        // 4. Redirect the user to the secure Shopify checkout URL
+        window.location.href = updatedCheckout.webUrl;
+      } else {
+        throw new Error("Failed to add items to Shopify checkout.");
+      }
+    } catch (error) {
+      console.error("Checkout error:", error);
+      alert("There was an error processing your checkout. Please try again.");
+    } finally {
+      setIsCheckingOut(false);
+    }
   };
 
   return (
@@ -179,8 +219,9 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({
                     <button
                       className="cart-checkout-button"
                       onClick={handleCheckout}
+                      disabled={isCheckingOut}
                     >
-                      <span>Proceed to Checkout</span>
+                      <span>{isCheckingOut ? "Processing..." : "Proceed to Checkout"}</span>
                       <ArrowRight size={20} />
                     </button>
 
